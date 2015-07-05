@@ -11,10 +11,10 @@
 // define device and pin numbers
 #define Temperature_Pin 2
 #define Button_Pin 3
-#define Relay_Roses_Pin 10
-#define Relay_Back_Pin 11
-#define Relay_BBQ_Pin 12
-#define Relay_Plants_Pin 13
+#define Relay_Roses_Pin  8
+#define Relay_Back_Pin 7
+#define Relay_BBQ_Pin 6
+#define Relay_Plants_Pin 5
 #define RTC_ADDRESS 0x68
 
 //initialize temperature sensor
@@ -29,46 +29,14 @@ int PrevButtonState;
 //debug mode
 boolean DebugMode = true;
 
+//release water in test mode
+boolean TestRelease = false;
+
 //set default state to true
 boolean IrrigationDay = true;
 
 // set default button state
 int ButtonState;
-
-void setup () {
-  Serial.begin(9600);
-
-  //set pin device mode
-  pinMode(Relay_Roses_Pin, OUTPUT);
-  pinMode(Relay_Back_Pin, OUTPUT);
-  pinMode(Relay_BBQ_Pin, OUTPUT);
-  pinMode(Relay_Plants_Pin, OUTPUT);
-  pinMode(Button_Pin, INPUT);
-  
-  // initialize HDT sensor
-  if (DebugMode)
-    Serial.println("temperature init");
-  dht.begin();
-  
-  // initialize RTC
-  Wire.begin();
-  //initialize RTC date and time
-  //setDateDs1307(00, 00, 20, 3, 24, 6, 15);
-}
-
-// Convert normal decimal numbers to binary coded decimal
-byte DecToBcd(byte val) {
-  return ( (val/10*16) + (val%10) );
-}
-
-// Convert binary coded decimal to normal decimal numbers
-byte BcdToDec(byte val) {
-  return ( (val/16*10) + (val%16) );
-}
-
-void SetDebugMode(boolean value) {
-  DebugMode = value;
-}
 
 // Function to set the currnt time, change the second&minute&hour to the right time
 void SetDateDs1307(byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year) {
@@ -83,6 +51,42 @@ void SetDateDs1307(byte second, byte minute, byte hour, byte dayOfWeek, byte day
   Wire.write(DecToBcd(month));
   Wire.write(DecToBcd(year));
   Wire.endTransmission();
+}
+
+void setup () {
+  Serial.begin(9600);
+
+  //set pin device mode
+  pinMode(Relay_Roses_Pin, OUTPUT);
+  pinMode(Relay_Back_Pin, OUTPUT);
+  pinMode(Relay_BBQ_Pin, OUTPUT);
+  pinMode(Relay_Plants_Pin, OUTPUT);
+  pinMode(Button_Pin, INPUT);
+  
+  // initialize HDT sensor
+  if (DebugMode)
+    Serial.println("Temperature init");
+  dht.begin();
+  
+  // initialize RTC
+  Wire.begin();
+
+  //initialize RTC date and time
+  //+setDateDs1307(00, 36, 21, 5, 3, 7, 15);
+}
+
+// Convert normal decimal numbers to binary coded decimal
+byte DecToBcd(byte val) {
+  return ( (val/10*16) + (val%10) );
+}
+
+// Convert binary coded decimal to normal decimal numbers
+byte BcdToDec(byte val) {
+  return ( (val/16*10) + (val%16) );
+}
+
+void SetDebugMode(boolean value) {
+  DebugMode = value;
 }
 
 // Function to gets the date and time from the ds1307 and prints result
@@ -123,6 +127,8 @@ void ButtonPressed (boolean btn_state) {
   if (btn_state) {
     if (DebugMode)
       Serial.println("Button pressed.");
+
+	// release water on area 1
     digitalWrite(Relay_Roses_Pin, HIGH);
     digitalWrite(Relay_Back_Pin, LOW);
     digitalWrite(Relay_BBQ_Pin, LOW);
@@ -132,14 +138,14 @@ void ButtonPressed (boolean btn_state) {
     WaterArea(0,1);
 }
 
-void WaterArea (int area, int time) {
-  int water_time = 0;
+void WaterArea (int area, unsigned long time) {
+  unsigned long water_time = 0;
   
   // Water the corresponding area
-  //water_time = time * 60*1000;
-
-  // 1 sec for testing purpose
-  water_time = time * 1000;
+  if (TestRelease)
+    water_time = time * 1000;
+  else
+    water_time = time * 60*1000;
 
   if (DebugMode) {
     Serial.print("Water area ");
@@ -204,6 +210,7 @@ void loop() {
 
   humidity = GetHumidity();
   temperature = GetTemperature();
+
   if (isnan(humidity) || isnan(temperature)) {
     if (DebugMode)
       Serial.println("Temperature read failed");
@@ -218,8 +225,9 @@ void loop() {
   }
     
   //read button state
-  delay(2000);
+  delay(1000);
   ButtonState = digitalRead(Button_Pin);
+
   if (DebugMode) {
     Serial.print("button state ");
     Serial.print(ButtonState);
@@ -239,7 +247,7 @@ void loop() {
   PrevButtonState = ButtonState;
   
   //check for irrigation time 
-  if (hour == 3 && minute == 00) {
+  if (hour == 03 && minute == 00) {
     if (DebugMode) {
       Serial.print("Time to water ");
       Serial.println(IrrigationDay);
@@ -258,13 +266,17 @@ void loop() {
         WaterArea (2,1);
         WaterArea (3,1);
         WaterArea (4,1);  
-        //delay (55000);
+        delay (5000);
       }
       else {
-        WaterArea (1,10);
-        WaterArea (2,7);
+        WaterArea (2,4);
+        delay(2000);
         WaterArea (3,7);
-        WaterArea (4,5);  
+        delay(2000);
+        WaterArea (4,7); 
+        delay(2000);
+        WaterArea (1,15);
+        delay(2000);
       }
     }
     else {
@@ -280,3 +292,4 @@ void loop() {
     WaterArea (0,1);
   }
 }
+
